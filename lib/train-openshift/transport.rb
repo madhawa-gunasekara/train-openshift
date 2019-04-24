@@ -11,8 +11,7 @@ module TrainPlugins
   module Openshift
     class Transport < Train.plugin(1)
       name 'openshift'
-      # add options for submodules
-      include_options Train::Extras::CommandWrapper
+
 
 
       # The only thing you MUST do in a transport is a define a

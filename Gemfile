@@ -14,6 +14,7 @@ group :development do
   gem 'pry'
   gem 'bundler'
   gem 'byebug'
+  gem 'inspec', '>= 2.2.112' # We need InSpec for the test harness while developing.
   gem 'minitest'
   gem 'mocha'
   gem 'm'
