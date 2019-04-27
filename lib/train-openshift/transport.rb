@@ -1,10 +1,24 @@
-
+# encoding: utf-8
+#
+# Author:: Madhawa Gunasekara(<madhawa30@gmail.com>)
+#
+# Copyright (C) 2019, Madhawa Gunasekara
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 require 'train/plugins'
+require 'train/options'
 
 
-# Train Plugins v1 are usually declared under the TrainPlugins namespace.
-# Each plugin has three components: Transport, Connection, and Platform.
-# We'll only define the Transport here, but we'll refer to the others.
 require 'train-openshift/connection'
 
 module TrainPlugins
@@ -12,19 +26,17 @@ module TrainPlugins
     class Transport < Train.plugin(1)
       name 'openshift'
 
+      option :host, required: true
+      option :serveruri, default: ENV['SERVER']
+      option :token, default: ENV['TOKEN']
+      option :ocpath, default: ENV['OC_PATH']
+      option :credentials_file, default: ENV['OPENSHIFT_CRED_FILE']
 
 
       # The only thing you MUST do in a transport is a define a
       # connection() method that returns a instance that is a
       # subclass of BaseConnection.
-
-      # The options passed to this are undocumented and rarely used.
       def connection(_instance_opts = nil)
-        # Typical practice is to cache the connection as an instance variable.
-        # Do what makes sense for your platform.
-        # @options here is the parsed options that the calling
-        # app handed to us at process invocation. See the Connection class
-        # for more details.
         @connection ||= TrainPlugins::Openshift::Connection.new(@options)
       end
     end

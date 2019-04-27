@@ -1,21 +1,24 @@
-# Connection definition file for an example Train plugin.
-
-# Most of the work of a Train plugin happens in this file.
-# Connections derive from Train::Plugins::Transport::BaseConnection,
-# and provide a variety of services.  Later generations of the plugin
-# API will likely separate out these responsibilities, but for now,
-# some of the responsibilities include:
-# * authentication to the target
-# * platform / release /family detection
-# * caching
-# * API execution
-# * marshalling to / from JSON
-# You don't have to worry about most of this.
-
-# Push platform detection out to a mixin, as it tends
-# to develop at a different cadence than the rest
+# encoding: utf-8
+#
+# Author:: Madhawa Gunasekara(<madhawa30@gmail.com>)
+#
+# Copyright (C) 2019, Madhawa Gunasekara
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 require 'train-openshift/platform'
 require 'train/plugins'
+require 'train/options'
+require 'train/extras'
 
 # This is a support library for our command meddling
 require "open3"
@@ -24,71 +27,47 @@ require 'ostruct'
 
 module TrainPlugins
   module Openshift
-    # You must inherit from BaseConnection.
+    # Connection inherit from BaseConnection.
     class Connection < Train::Plugins::Transport::BaseConnection
+      attr_reader :hostname
       # We've placed platform detection in a separate module; pull it in here.
       include TrainPlugins::Openshift::Platform
 
+      DEFAULT_FILE = ::File.join('openshift-properties.yml')
+
       def initialize(options)
-        # 'options' here is a hash, Symbol-keyed,
-        # of what Train.target_config decided to do with the URI that it was
-        # passed by `inspec -t` (or however the application gathered target information)
-        # Some plugins might use this moment to capture credentials from the URI,
-        # and the configure an underlying SDK accordingly.
-        # You might also take a moment to manipulate the options.
-        # Have a look at the Local, SSH, and AWS transports for ideas about what
-        # you can do with the options.
-
-        # Override for any cli options
-        #
-        #@cmd_wrapper = CommandWrapper.load(self, @transport_options)
-
-        # Now let the BaseConnection have a chance to configure itself.
         super(options)
-        logger.info("parameter uri #{pod}")
-        logger.info("parameter token #{token}")
-        logger.info("parameter ocpath #{ocpath}")
+        options[:credentials_file] = DEFAULT_FILE if options[:credentials_file].nil?
+        if File.file?(options[:credentials_file])
+          logger.debug("[Openshift] Reading parameters from the file #{options[:credentials_file]}")
+          properties = YAML.load(File.read(options[:credentials_file]))
+          options[:ocpath] = properties['ocPath']
+          options[:serveruri] = properties['serverUrl']
+          options[:token] = properties['token']
+        end
+        @hostname = options.delete(:host)
+        @serveruri = options.delete(:serveruri)
+        @token = options.delete(:token)
+        @ocpath = options.delete(:ocpath)
+        logger.debug("[Openshift] Parameter uri: #{@hostname}")
+        logger.debug("[Openshift] Parameter token: #{@token}")
+        logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
       end
 
-
-      # TODO: determine exactly what this is used for
-      def pod
-        "openshift://#{@options[:pod]}"
-      end
-
-      def serveruri
-        "--serveruri://#{@options[:serveruri]}"
-      end
-
-      def token
-        "--token=#{@options[:token]}"
-      end
-
-      def ocpath
-        "--path=#{@options[:ocpath]}"
-      end
-
-      # Establish an SSH session on the remote host.
-      #
-      # @param opts [Hash] retry options
-      # @option opts [Integer] :retries the number of times to retry before
-      #   failing
-      # @option opts [Float] :delay the number of seconds to wait until
-      #   attempting a retry
-      # @option opts [String] :message an optional message to be logged on
-      #   debug (overriding the default) when a rescuable exception is raised
-      # @return [Net::SSH::Connection::Session] the SSH connection session
-      # @api private
-      def establish_connection(opts)
-        logger.info("opening connection to #{serveruri}")
-        cmd = "." + ocpath + "/oc login " + serveruri + " --token=" + token
-        stdout, stderr, status = Open3.capture3(cmd)
+      def establish_connection
+        logger.debug("opening connection to #{@serveruri}")
+        command = "#{@ocpath}/oc login #{@serveruri} --token=#{@token}"
+        stdout, stderr, status = Open3.capture3(command)
         result = status.exitstatus
-        logger.info("initialized oc client login #{result}")
+        logger.debug("initialized oc client login #{result}")
       end
 
 
       def file_via_connection(path)
+        logger.debug("[Openshift] Start Executing file via connection for #{@hostname}")
+        logger.debug("[Openshift] Parameter uri: #{@hostname}")
+        logger.debug("[Openshift] Parameter token: #{@token}")
+        logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
         if os.aix?
           Train::File::Remote::Aix.new(self, path)
         elsif os.solaris?
@@ -101,25 +80,37 @@ module TrainPlugins
       end
 
       def run_command_via_connection(cmd)
-        command_list = [
-            "." + ocpath + "/oc rsh " + pod,
-            cmd
-        ]
-
-        result = nil
-        stdout, stderr, status = nil
-        command_list.each do |command|
-          stdout, stderr, status = Open3.capture3(command)
+        begin
+          logger.debug("[Openshift] Start Executing run command via connection for #{@hostname}")
+          logger.debug("[Openshift] Parameter uri: #{@hostname}")
+          logger.debug("[Openshift] Parameter token: #{@token}")
+          logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
+          command = "#{@ocpath}/oc login #{@serveruri} --token=#{@token}"
+          sout, serr, status = Open3.capture3(command)
           result = status.exitstatus
-          break if result != 0
+          result = 0
+          erroutput = nil
+          output = nil
+          logger.debug("[Openshift] Parameter command #{cmd}")
+          test = lambda do |command|
+            Open3.popen3("#{@ocpath}/oc rsh #{@hostname}") do |stdin, stdout, stderr, wait_thr|
+              stdin.puts command.to_s
+              stdin.close_write
+              output = stdout.read
+              erroutput = stderr.read
+              result = wait_thr.value.exitstatus
+            end
+          end
+          test [cmd]
+          logger.debug("[Openshift] Parameter output #{output}")
+          logger.debug("[Openshift] Parameter erroutput #{erroutput}")
+          logger.debug("[Openshift] Parameter result #{result}")
+          logger.debug("[Openshift] Finish Executing run command via connection for #{@hostname}")
+          CommandResult.new(output, erroutput, result)
+        rescue Exception => e
+          puts e.message
+          puts e.backtrace
         end
-        # Wrap the results in a structure that Train expects...
-        OpenStruct.new(
-            # And meddle with the stdout along the way.
-            stdout: stdout,
-            stderr: stderr,
-            exit_status: result,
-        )
       end
     end
   end

@@ -14,11 +14,10 @@ Gem::Specification.new do |spec|
 
   # It is polite to namespace your plugin under InspecPlugins::YourPluginInCamelCase
   spec.version       = TrainPlugins::Openshift::VERSION
-  spec.authors       = ['Xiges InSpec Team']
-  spec.email         = ['inspec@chef.io']
-  spec.summary       = "Openshift API Transport for Train"
-  spec.description   = 'Allows applictaions using Train to speak to AWS; handles authentication, cacheing, and SDK dependency management.'
-  spec.homepage      = 'https://github.com/inspec/train-openshift'
+  spec.authors       = ['Xiges InSpec Team','Madhawa Gunasekara']
+  spec.email         = ['madhawa30@gmail.com','madhawa@apache.org']
+  spec.summary       = "Openshift Train Plugin for Inspec"
+  spec.description   = 'Allows applictaions using Train to speak to Openshift; handles authentication.'
   spec.license       = 'Apache-2.0'
 
   # Though complicated-looking, this is pretty standard for a gemspec.
@@ -30,13 +29,5 @@ Gem::Specification.new do |spec|
     'lib/**/*', File::FNM_DOTMATCH
   ).reject { |f| File.directory?(f) }
   spec.require_paths = ['lib']
-
-  # If you rely on any other gems, list them here with any constraints.
-  # This is how `inspec plugin install` is able to manage your dependencies.
-
-  # If you only need certain gems during development or testing, list
-  # them in Gemfile, not here.
-
-  # Do not list inspec as a dependency of a train plugin.
 
 end

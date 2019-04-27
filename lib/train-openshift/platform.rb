@@ -1,36 +1,28 @@
-# Platform definition file.  This is a good place to separate out any
-# logic regarding the identification of the OS or API at the far end
-# of the connection.
-
-# Abbreviate the namespace here, if you like.
+# encoding: utf-8
+#
+# Author:: Madhawa Gunasekara(<madhawa30@gmail.com>)
+#
+# Copyright (C) 2019, Madhawa Gunasekara
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 module TrainPlugins::Openshift
-  # Since we're mixing in the platform detection facility into Connection,
-  # this has to come in as a Module.
+
   module Platform
-    # The method `platform` is called when platform detection is
-    # about to be performed.  Train core defines a sophisticated
-    # system for platform detection, but for most plugins, you'll
-    # only ever run on the special platform for which you are targeting.
+
     def platform
-      # If you are declaring a new platform, you will need to tell
-      # Train a bit about it.
-      # If you were defining a cloud API, you should say you are a member
-      # of the cloud family.
-
-      # This plugin defines a new platform.
-      Train::Platforms.name('openshift').in_family('cloud')
-
-      # When you know you will only ever run on your dedicated platform
-      # force_platform! lets you bypass platform detection.
-      # The options to this are not currently documented completely.
-
-      # Use release to report a version number.  You might use the version
-      # of the plugin, or a version of an important underlying SDK, or a
-      # version of a remote API.
-      openshift_client_version = "2.0.0"
-      plugin_version = "train-openshift: v#{TrainPlugins::Openshift::VERSION}"
-
-      force_platform!('openshift', release: "#{plugin_version}, #{openshift_client_version}")
+      Train::Platforms.name('openshift').in_family('unix')
+      _plugin_version = "train-openshift: v#{TrainPlugins::Openshift::VERSION}"
+      force_platform!('openshift', release: "#{_plugin_version}")
     end
   end
 end
