@@ -44,6 +44,7 @@ module TrainPlugins
           options[:ocpath] = properties['ocPath']
           options[:serveruri] = properties['serverUrl']
           options[:token] = properties['token']
+          logger.debug("[Openshift] Parameter uri: #{options[:credentials_file]}")
         end
         @hostname = options.delete(:host)
         @serveruri = options.delete(:serveruri)
@@ -52,6 +53,7 @@ module TrainPlugins
         logger.debug("[Openshift] Parameter uri: #{@hostname}")
         logger.debug("[Openshift] Parameter token: #{@token}")
         logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
+        validate
       end
 
       def establish_connection
@@ -76,6 +78,21 @@ module TrainPlugins
           Train::File::Remote::Qnx.new(self, path)
         else
           Train::File::Remote::Linux.new(self, path)
+        end
+      end
+
+      def validate
+        if @ocpath.nil?
+          fail Train::ClientError, 'Openshift oc client path needs to be specified'
+        end
+        if @hostname.nil?
+          fail Train::ClientError, 'Openshift host/pod needs to be specified'
+        end
+        if @token.nil?
+          fail Train::ClientError, 'Openshift login token needs to be specified'
+        end
+        if @serveruri.nil?
+          fail Train::ClientError, 'Openshift login url needs to be specified'
         end
       end
 
