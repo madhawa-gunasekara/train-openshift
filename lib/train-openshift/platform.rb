@@ -20,7 +20,7 @@ module TrainPlugins::Openshift
   module Platform
 
     def platform
-      Train::Platforms.name('openshift').in_family('unix')
+      Train::Platforms.name('openshift').in_family('linux')
       _plugin_version = "train-openshift: v#{TrainPlugins::Openshift::VERSION}"
       force_platform!('openshift', release: "#{_plugin_version}")
     end

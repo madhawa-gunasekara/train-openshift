@@ -22,8 +22,6 @@ require 'train/extras'
 
 # This is a support library for our command meddling
 require "open3"
-require "pp"
-require 'ostruct'
 
 module TrainPlugins
   module Openshift
@@ -37,33 +35,51 @@ module TrainPlugins
 
       def initialize(options)
         super(options)
-        options[:credentials_file] = DEFAULT_FILE if options[:credentials_file].nil?
-        if File.file?(options[:credentials_file])
-          logger.debug("[Openshift] Reading parameters from the file #{options[:credentials_file]}")
-          properties = YAML.load(File.read(options[:credentials_file]))
-          options[:ocpath] = properties['ocPath']
-          options[:serveruri] = properties['serverUrl']
-          options[:token] = properties['token']
-          logger.debug("[Openshift] Parameter uri: #{options[:credentials_file]}")
+        if options[:credentials_file].nil? and options[:oc_path].nil? and options[:login_uri].nil? and options[:token].nil?
+          options[:credentials_file] = DEFAULT_FILE
+        end
+        unless options[:credentials_file].nil?
+          if File.file?(options[:credentials_file])
+            logger.debug("[Openshift] Reading parameters from the file #{options[:credentials_file]}")
+            properties = YAML.load(File.read(options[:credentials_file]))
+            options[:oc_path] = properties['ocPath']
+            options[:login_uri] = properties['serverUrl']
+            options[:token] = properties['token']
+            options[:project] = properties['project']
+            logger.debug("[Openshift] Parameter uri: #{options[:credentials_file]}")
+          end
         end
         @hostname = options.delete(:host)
-        @serveruri = options.delete(:serveruri)
+        @serveruri = options.delete(:login_uri)
         @token = options.delete(:token)
-        @ocpath = options.delete(:ocpath)
+        @ocpath = options.delete(:oc_path)
+        @project = options.delete(:project)
         logger.debug("[Openshift] Parameter uri: #{@hostname}")
         logger.debug("[Openshift] Parameter token: #{@token}")
         logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
         validate
+        establish_connection
       end
 
       def establish_connection
         logger.debug("opening connection to #{@serveruri}")
-        command = "#{@ocpath}/oc login #{@serveruri} --token=#{@token}"
+        oc = File.join(@ocpath, "oc")
+        command = "#{oc} login #{@serveruri} --token=#{@token}"
         stdout, stderr, status = Open3.capture3(command)
         result = status.exitstatus
-        logger.debug("initialized oc client login #{result}")
+        logger.debug("[Openshift] Initialized oc client login #{result} with result output #{stdout}, with error #{stderr}")
+
+        unless @project.nil?
+          command = "#{oc} project #{@project}"
+          stdout, stderr, status = Open3.capture3(command)
+          result = status.exitstatus
+          logger.debug("[Openshift] Switched to project to #{@project} with #{result} with result output #{stdout}, with error #{stderr}")
+        end
       end
 
+      def target
+        @hostname
+      end
 
       def file_via_connection(path)
         logger.debug("[Openshift] Start Executing file via connection for #{@hostname}")
@@ -83,16 +99,16 @@ module TrainPlugins
 
       def validate
         if @ocpath.nil?
-          fail Train::ClientError, 'Openshift oc client path needs to be specified'
+          fail Train::PluginLoadError, 'Openshift oc client path needs to be specified'
         end
         if @hostname.nil?
-          fail Train::ClientError, 'Openshift host/pod needs to be specified'
+          fail Train::PluginLoadError, 'Openshift host/pod needs to be specified'
         end
         if @token.nil?
-          fail Train::ClientError, 'Openshift login token needs to be specified'
+          fail Train::PluginLoadError, 'Openshift login token needs to be specified'
         end
         if @serveruri.nil?
-          fail Train::ClientError, 'Openshift login url needs to be specified'
+          fail Train::PluginLoadError, 'Openshift login url needs to be specified'
         end
       end
 
@@ -102,31 +118,34 @@ module TrainPlugins
           logger.debug("[Openshift] Parameter uri: #{@hostname}")
           logger.debug("[Openshift] Parameter token: #{@token}")
           logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
-          command = "#{@ocpath}/oc login #{@serveruri} --token=#{@token}"
-          sout, serr, status = Open3.capture3(command)
-          result = status.exitstatus
-          result = 0
-          erroutput = nil
-          output = nil
-          logger.debug("[Openshift] Parameter command #{cmd}")
-          test = lambda do |command|
-            Open3.popen3("#{@ocpath}/oc rsh #{@hostname}") do |stdin, stdout, stderr, wait_thr|
-              stdin.puts command.to_s
-              stdin.close_write
-              output = stdout.read
-              erroutput = stderr.read
-              result = wait_thr.value.exitstatus
+          result = -1
+          error_output = nil
+          result_output = nil
+          if cmd.match(/^OCR:/)
+            cmd['OCR:'] = ''
+            logger.debug("[Openshift] Parameter command #{cmd}")
+            result_output, error_output, status = Open3.capture3("#{@ocpath}/oc #{cmd}")
+            result = status.exitstatus
+          else
+            logger.debug("[Openshift] Parameter command #{cmd}")
+            run_command = lambda do |command|
+              Open3.popen3("#{@ocpath}/oc rsh #{@hostname}") do |stdin, stdout, stderr, wait_thr|
+                stdin.puts command.to_s
+                stdin.close_write
+                result_output = stdout.read
+                error_output = stderr.read
+                result = wait_thr.value.exitstatus
+              end
             end
+            run_command [cmd]
           end
-          test [cmd]
-          logger.debug("[Openshift] Parameter output #{output}")
-          logger.debug("[Openshift] Parameter erroutput #{erroutput}")
+          logger.debug("[Openshift] Parameter output #{result_output}")
+          logger.debug("[Openshift] Parameter erroutput #{error_output}")
           logger.debug("[Openshift] Parameter result #{result}")
           logger.debug("[Openshift] Finish Executing run command via connection for #{@hostname}")
-          CommandResult.new(output, erroutput, result)
+          CommandResult.new(result_output, error_output, result)
         rescue Exception => e
-          puts e.message
-          puts e.backtrace
+          fail Train::ClientError, e.message, e.backtrace
         end
       end
     end

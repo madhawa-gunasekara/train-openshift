@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
   spec.email         = ['madhawa30@gmail.com','madhawa@apache.org']
   spec.summary       = "Openshift Train Plugin for Inspec"
   spec.description   = 'Allows applictaions using Train to speak to Openshift; handles authentication.'
+  spec.homepage      = 'https://github.com/inspec/train-openshift'
   spec.license       = 'Apache-2.0'
 
   # Though complicated-looking, this is pretty standard for a gemspec.

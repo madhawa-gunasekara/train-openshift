@@ -18,7 +18,6 @@
 require 'train/plugins'
 require 'train/options'
 
-
 require 'train-openshift/connection'
 
 module TrainPlugins
@@ -27,9 +26,10 @@ module TrainPlugins
       name 'openshift'
 
       option :host, required: true
-      option :serveruri, default: ENV['SERVER']
+      option :login_uri, default: ENV['SERVER']
+      option :project, default: ENV['PROJECT']
       option :token, default: ENV['TOKEN']
-      option :ocpath, default: ENV['OC_PATH']
+      option :oc_path, default: ENV['OC_PATH']
       option :credentials_file, default: ENV['OPENSHIFT_CRED_FILE']
 
 
