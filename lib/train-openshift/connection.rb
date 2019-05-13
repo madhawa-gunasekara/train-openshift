@@ -64,7 +64,7 @@ module TrainPlugins
       def establish_connection
         logger.debug("opening connection to #{@serveruri}")
         oc = File.join(@ocpath, "oc")
-        command = "#{oc} login #{@serveruri} --token=#{@token} --insecure-skip-tls-verify=true"
+        command = "#{oc} login #{@serveruri} --token=#{@token}"
         stdout, stderr, status = Open3.capture3(command)
         result = status.exitstatus
         logger.debug("[Openshift] Initialized oc client login #{result} with result output #{stdout}, with error #{stderr}")
