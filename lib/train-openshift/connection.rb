@@ -81,6 +81,21 @@ module TrainPlugins
         @hostname
       end
 
+      def command_via_oc(cmd)
+        logger.debug("[Openshift] Start Executing command via oc")
+        logger.debug("[Openshift] Parameter uri: #{@hostname}")
+        logger.debug("[Openshift] Parameter token: #{@token}")
+        logger.debug("[Openshift] Parameter ocpath: #{@ocpath}")
+        logger.debug("[Openshift] Parameter command #{cmd}")
+        result_output, error_output, status = Open3.capture3("#{@ocpath}/oc #{cmd}")
+        result = status.exitstatus
+        logger.debug("[Openshift] Parameter output #{result_output}")
+        logger.debug("[Openshift] Parameter erroutput #{error_output}")
+        logger.debug("[Openshift] Parameter result #{result}")
+        logger.debug("[Openshift] Finish Executing command via oc")
+        CommandResult.new(result_output, error_output, result)
+      end
+
       def file_via_connection(path)
         logger.debug("[Openshift] Start Executing file via connection for #{@hostname}")
         logger.debug("[Openshift] Parameter uri: #{@hostname}")
@@ -121,24 +136,17 @@ module TrainPlugins
           result = -1
           error_output = nil
           result_output = nil
-          if cmd.match(/^OCR:/)
-            cmd['OCR:'] = ''
-            logger.debug("[Openshift] Parameter command #{cmd}")
-            result_output, error_output, status = Open3.capture3("#{@ocpath}/oc #{cmd}")
-            result = status.exitstatus
-          else
-            logger.debug("[Openshift] Parameter command #{cmd}")
-            run_command = lambda do |command|
-              Open3.popen3("#{@ocpath}/oc rsh #{@hostname}") do |stdin, stdout, stderr, wait_thr|
-                stdin.puts command.to_s
-                stdin.close_write
-                result_output = stdout.read
-                error_output = stderr.read
-                result = wait_thr.value.exitstatus
-              end
+          logger.debug("[Openshift] Parameter command #{cmd}")
+          run_command = lambda do |command|
+            Open3.popen3("#{@ocpath}/oc rsh #{@hostname}") do |stdin, stdout, stderr, wait_thr|
+              stdin.puts command.to_s
+              stdin.close_write
+              result_output = stdout.read
+              error_output = stderr.read
+              result = wait_thr.value.exitstatus
             end
-            run_command [cmd]
           end
+          run_command [cmd]
           logger.debug("[Openshift] Parameter output #{result_output}")
           logger.debug("[Openshift] Parameter erroutput #{error_output}")
           logger.debug("[Openshift] Parameter result #{result}")

@@ -22,8 +22,11 @@ module Inspec::Resources
     # use filterTable for pods
     filter = FilterTable.create
     filter.register_custom_matcher(:exists?) {|x| !x.entries.empty?}
-    filter.register_column(:ids, field: 'id')
+    filter.register_column(:ids, field: 'name')
         .register_column(:status, field: 'status')
+        .register_column(:status, field: 'hostIP')
+        .register_column(:status, field: 'podIP')
+        .register_column(:status, field: 'namespace')
         .register_custom_matcher(:running?) {|x|
           x.where {status.downcase.start_with?('running')}
         }
@@ -55,36 +58,41 @@ module Inspec::Resources
 
     # returns information about docker objects
     def command(cmd)
-      return @inspect if defined?(@inspect)
-      data = inspec.command("OCR: #{cmd}")
-      @inspect = data
+      return @command if defined?(@command)
+      data = inspec.backend.command_via_oc(cmd)
+      @command = data
     end
 
     def to_s
       'Openshift Host'
     end
 
+    def object(id)
+      return @object if defined?(@object)
+      command = "get pod/#{id} -o json"
+      cmd = inspec.backend.command_via_oc(command).stdout
+      json_output = JSON.parse(cmd)
+      @object = json_output
+    end
     private
 
     def parse_pods
       return @inspect if defined?(@inspect)
       row = nil
-      command = "OCR: get pods"
-      cmd = inspec.command(command).stdout
+      command = "get pods -o json"
+      cmd = inspec.backend.command_via_oc(command).stdout
+      json_output = JSON.parse(cmd)
       output = []
-      cmd.each_line {|entry|
-        if entry.count("0-9") > 0
-          params = entry.split(" ")
-          json = "{
-              \"id\" : \"#{params[0]}\",
-              \"status\" : \"#{params[2]}\"
-          }"
-          row = JSON.parse(json).map { |key, value|
-            [key.downcase, value]
-          }.to_h
-          output.push(row)
-        end
-      }
+      json_output['items'].each do |pod|
+        name = pod['metadata']['name']
+        namespace = pod['metadata']['namespace']
+        pod_ip = pod['status']['podIP']
+        host_ip = pod['status']['hostIP']
+        status = pod['status']['phase']
+        row = {"name" => name, "namespace" => namespace, "podIP" => pod_ip, "hostIP" => host_ip, "status" => status}
+        output.push(row)
+      end
+
       @inspect = output
     end
 
