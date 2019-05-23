@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
 
   # It is polite to namespace your plugin under InspecPlugins::YourPluginInCamelCase
   spec.version       = TrainPlugins::Openshift::VERSION
-  spec.authors       = ['Xiges InSpec Team','Madhawa Gunasekara']
+  spec.authors       = ['Madhawa Gunasekara']
   spec.email         = ['madhawa30@gmail.com','madhawa@apache.org']
   spec.summary       = "Openshift Train Plugin for Inspec"
   spec.description   = 'Allows applictaions using Train to speak to Openshift; handles authentication.'
